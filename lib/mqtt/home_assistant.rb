@@ -120,6 +120,34 @@ module MQTT
         temperature_unit
         value_template
       ].freeze,
+      cover: %i[
+        command_topic
+        device_class
+        payload_close
+        payload_open
+        payload_stop
+        position_closed
+        position_open
+        position_template
+        position_topic
+        set_position_template
+        set_position_topic
+        state_closed
+        state_closing
+        state_open
+        state_opening
+        state_stopped
+        state_topic
+        tilt_closed_value
+        tilt_command_topic
+        tilt_max
+        tilt_min
+        tilt_opened_value
+        tilt_optimistic
+        tilt_range
+        tilt_status_template
+        value_template
+      ].freeze,
       fan: %i[
         command_topic:
         command_template
@@ -330,6 +358,7 @@ module MQTT
 
     RANGE_ATTRIBUTES = {
       climate: { humidity: :prefix, temp: :prefix }.freeze,
+      cover: { tilt: :suffix }.freeze,
       fan: { speed_range: :suffix }.freeze,
       humidifier: { humidity: :prefix }.freeze,
       light: { mireds: :prefix }.freeze,
@@ -360,6 +389,16 @@ module MQTT
         fan_modes: %w[auto low medium high].freeze,
         modes: %w[auto off cool heat dry fan_only].freeze,
         swing_modes: %w[on off].freeze
+      }.freeze,
+      cover: {
+        payload_close: "CLOSE",
+        payload_open: "OPEN",
+        payload_stop: "STOP",
+        state_closed: "closed",
+        state_closing: "closing",
+        state_open: "open",
+        state_opening: "opening",
+        state_stopped: "stopped"
       }.freeze,
       fan: {
         payload_off: "off",
@@ -450,6 +489,20 @@ module MQTT
           vibration
           window
         ].to_set.freeze
+      }.freeze,
+      cover: {
+        device_class: %i[
+          awning
+          blind
+          curtain
+          damper
+          door
+          garage
+          gate
+          shade
+          shutter
+          window
+        ].freeze
       }.freeze,
       humidifier: {
         device_class: %i[
