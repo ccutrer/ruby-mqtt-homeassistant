@@ -59,6 +59,12 @@ module MQTT
         payload_off
         payload_on
       ].freeze,
+      button: %i[
+        command_template
+        command_topic
+        device_class
+        payload_press
+      ].freeze,
       climate: %i[
         action_template
         action_topic
@@ -368,6 +374,7 @@ module MQTT
 
     REQUIRED_ATTRIBUTES = {
       binary_sensor: %i[state_topic].freeze,
+      button: %i[command_topic].freeze,
       humidifier: %i[command_topic target_humidity_command_topic].freeze,
       light: {
         default: %i[command_topic].freeze,
@@ -384,6 +391,9 @@ module MQTT
       binary_sensor: {
         payload_off: "OFF",
         payload_on: "ON"
+      }.freeze,
+      button: {
+        payload_press: "PRESS"
       }.freeze,
       climate: {
         fan_modes: %w[auto low medium high].freeze,
@@ -489,6 +499,13 @@ module MQTT
           vibration
           window
         ].to_set.freeze
+      }.freeze,
+      button: {
+        device_class: %i[
+          identify
+          restart
+          update
+        ].freeze
       }.freeze,
       cover: {
         device_class: %i[
