@@ -2,17 +2,397 @@
 
 require "json"
 
-require "mqtt/homie"
-require "mqtt/home_assistant/homie/device"
-require "mqtt/home_assistant/homie/node"
-require "mqtt/home_assistant/homie/property"
+require "mqtt-homie-homeassistant"
 
 module MQTT
   module HomeAssistant
-    class << self
-      ENTITY_CATEGORIES = %i[config diagnostic system].freeze
-      DEVICE_CLASSES = {
-        binary_sensor: %i[
+    SPECIAL_ATTRIBUTES = {
+      common: %i[
+        availability
+        availability_mode
+        availability_template
+        availability_topic
+        device
+        enabled_by_default
+        entity_category
+        entity_picture
+        icon
+        json_attributes_template
+        json_attributes_topic
+        name
+        optimistic
+        payload_available
+        payload_not_available
+        platform
+        qos
+        retain
+        unique_id
+      ].freeze,
+      availability: %i[
+        payload_available
+        payload_not_available
+        topic
+        value_template
+      ].freeze,
+      device: %i[
+        configuration_url
+        connections
+        hw_version
+        identifiers
+        manufacturer
+        model
+        model_id
+        name
+        serial_number
+        suggested_area
+        sw_version
+        via_device
+      ].freeze
+    }.freeze
+    KNOWN_ATTRIBUTES = {
+      binary_sensor: %i[
+        state_topic
+        device_class
+        expire_after
+        force_update
+        off_delay
+        payload_off
+        payload_on
+      ].freeze,
+      climate: %i[
+        action_template
+        action_topic
+        current_humidity_template
+        current_humidity_topic
+        current_temperature_template
+        current_temperature_topic
+        fan_mode_command_template
+        fan_mode_command_topic
+        fan_mode_state_template
+        fan_mode_state_topic
+        fan_modes
+        humidity_range
+        initial
+        max_humidity
+        max_temp
+        min_humidity
+        min_temp
+        mode_command_template
+        mode_command_topic
+        mode_state_template
+        mode_state_topic
+        modes
+        payload_off
+        payload_on
+        power_command_template
+        power_command_topic
+        power_state_template
+        power_state_topic
+        precision
+        preset_mode_command_template
+        preset_mode_command_topic
+        preset_mode_state_topic
+        preset_mode_value_template
+        preset_modes
+        swing_mode_command_template
+        swing_mode_command_topic
+        swing_mode_state_template
+        swing_mode_state_topic
+        swing_modes
+        target_humidity_command_template
+        target_humidity_command_topic
+        target_humidity_state_template
+        target_humidity_state_topic
+        temp_range
+        temp_step
+        temperature_command_template
+        temperature_command_topic
+        temperature_high_command_template
+        temperature_high_command_topic
+        temperature_high_state_template
+        temperature_high_state_topic
+        temperature_low_command_template
+        temperature_low_command_topic
+        temperature_low_state_template
+        temperature_low_state_topic
+        temperature_state_template
+        temperature_state_topic
+        temperature_unit
+        value_template
+      ].freeze,
+      fan: %i[
+        command_topic:
+        command_template
+        direction_command_template
+        direction_command_topic
+        direction_state_topic
+        direction_value_template
+        oscillation_command_template
+        oscillation_command_topic
+        oscillation_state_topic
+        oscillation_value_template
+        payload_off
+        payload_on
+        payload_oscillation_off
+        payload_oscillation_on
+        payload_reset_percentage
+        payload_reset_preset_mode
+        percentage_command_template
+        percentage_command_topic
+        percentage_state_topic
+        percentage_value_template
+        preset_mode_command_template
+        preset_mode_command_topic
+        preset_mode_state_topic
+        preset_mode_value_template
+        preset_modes
+        speed_range
+        state_topic
+        state_value_template
+      ].freeze,
+      humidifier: %i[
+        action_template
+        action_topic
+        current_humidity_template
+        current_humidity_topic
+        command_template
+        command_topic
+        device_class
+        mode_command_template
+        mode_command_topic
+        mode_staet_template
+        mode_state_topic
+        modes
+        payload_off
+        payload_on
+        payload_reset_humidity
+        payload_reset_mode
+        state_topic
+        target_humidity_command_template
+        target_humidity_command_topic
+        target_humidity_state_topic
+        target_humidity_state_template
+      ].freeze,
+      light: {
+        default: %i[
+          brightness_command_template
+          brightness_command_topic
+          brightness_scale
+          brightness_state_topic
+          brightness_value_template
+          color_mode_state_topic
+          color_mode_value_template
+          color_temp_command_template
+          color_temp_command_topic
+          color_temp_state_topic
+          color_temp_value_template
+          command_topic
+          effect_command_topic
+          effect_command_template
+          effect_list
+          effect_state_topic
+          effect_value_template
+          hs_command_template
+          hs_command_topic
+          hs_state_topic
+          hs_value_template
+          max_mireds
+          min_mireds
+          mireds_range
+          on_command_type
+          payload_off
+          payload_on
+          rgb_command_template
+          rgb_command_topic
+          rgb_state_topic
+          rgb_value_template
+          rgbw_command_template
+          rgbw_command_topic
+          rgbw_state_topic
+          rgbw_value_template
+          rgbww_command_template
+          rgbww_command_topic
+          rgbww_state_topic
+          rgbww_value_template
+          state_topic
+          white_command_topic
+          white_scale
+          xy_command_template
+          xy_command_topic
+          xy_state_topic
+          xy_value_template
+        ].freeze,
+        json: %i[
+          brightness
+          brightness_scale
+          command_topic
+          effect
+          effect_list
+          flash_time_long
+          flash_time_short
+          max_mireds
+          min_mireds
+          mireds_range
+          state_topic
+          supported_color_modes
+          white_scale
+        ].freeze,
+        template: %i[
+          blue_template
+          brightness_template
+          color_temp_template
+          command_off_template
+          command_on_template
+          command_topic
+          effect_list
+          effect_template
+          green_template
+          max_mireds
+          min_mireds
+          mireds_range
+          red_template
+          state_template
+          state_topic
+        ].freeze
+      }.freeze,
+      number: %i[
+        command_template
+        command_topic
+        min
+        max
+        mode
+        payload_reset
+        range
+        state_topic
+        step
+        unit_of_measurement
+        value_template
+      ].freeze,
+      scene: %i[
+        command_topic
+        payload_on
+      ].freeze,
+      select: %i[
+        command_template
+        command_topic
+        options
+        state_topic
+        value_template
+      ].freeze,
+      sensor: %i[
+        device_class
+        expire_after
+        force_update
+        last_reset_value_template
+        options
+        suggested_display_precision
+        state_class
+        state_topic
+        unit_of_measurement
+        value_template
+      ].freeze,
+      switch: %i[
+        command_template
+        command_topic
+        device_class
+        payload_off
+        payload_on
+        state_off
+        state_on
+        state_topic
+        value_template
+      ].freeze
+    }.freeze
+
+    RANGE_ATTRIBUTES = {
+      climate: { humidity: :prefix, temp: :prefix }.freeze,
+      fan: { speed_range: :suffix }.freeze,
+      humidifier: { humidity: :prefix }.freeze,
+      light: { mireds: :prefix }.freeze,
+      number: { range: :singleton }.freeze
+    }.freeze
+
+    REQUIRED_ATTRIBUTES = {
+      binary_sensor: %i[state_topic].freeze,
+      humidifier: %i[command_topic target_humidity_command_topic].freeze,
+      light: {
+        default: %i[command_topic].freeze,
+        json: %i[command_topic].freeze,
+        template: %i[command_off_template command_on_template command_topic]
+      }.freeze,
+      number: %i[command_topic].freeze,
+      select: %i[command_topic options].freeze,
+      sensor: %i[state_topic].freeze,
+      switch: %i[command_topic].freeze
+    }.freeze
+
+    DEFAULTS = {
+      binary_sensor: {
+        payload_off: "OFF",
+        payload_on: "ON"
+      }.freeze,
+      climate: {
+        fan_modes: %w[auto low medium high].freeze,
+        modes: %w[auto off cool heat dry fan_only].freeze,
+        swing_modes: %w[on off].freeze
+      }.freeze,
+      fan: {
+        payload_off: "off",
+        payload_on: "on"
+      }.freeze,
+      humidifier: {
+        device_class: "humidifier",
+        payload_off: "OFF",
+        payload_on: "ON",
+        payload_reset_humidity: "None",
+        payload_reset_mode: "None"
+      }.freeze,
+      light: {
+        payload_off: "OFF",
+        payload_on: "ON"
+      }.freeze,
+      number: {
+        mode: "auto",
+        payload_reset: "None"
+      }.freeze,
+      scene: {
+        payload_on: "ON"
+      },
+      switch: {
+        payload_off: "OFF",
+        payload_on: "ON"
+      }.freeze
+    }.freeze
+
+    COLOR_MODES = %i[onoff brightness color_temp hs xy rgb rgbw rgbww white].freeze
+
+    VALIDATIONS = {
+      climate: lambda do |modes: nil, **|
+        if modes && !(extra_modes = modes - DEFAULTS[:climate][:modes]).empty?
+          raise ArgumentError, "Invalid mode(s) #{extra_modes.join(", ")} for platform climate"
+        end
+      end,
+      light: lambda do |supported_color_modes: nil, **|
+        if supported_color_modes
+          unless (extra_modes = (supported_color_modes - COLOR_MODES)).empty?
+            raise ArgumentError, "Invalid color_mode(s) #{extra_modes.join(", ")} for platform light"
+          end
+
+          if supported_color_modes.length > 1 &&
+             (supported_color_modes.include?(:onoff) || supported_color_modes.include?(:brightness))
+            raise ArgumentError,
+                  "Multiple color modes are not supported for platform light if onoff or brightness are specified"
+          end
+        end
+      end
+    }.freeze
+
+    INCLUSION_VALIDATIONS = {
+      common: {
+        entity_category: %i[config diagnostic system].freeze
+      }.freeze,
+      binary_sensor: {
+        device_class: %i[
           battery
           battery_charging
           carbon_monoxide
@@ -41,12 +421,19 @@ module MQTT
           update
           vibration
           window
-        ].freeze,
-        humidifier: %i[
+        ].to_set.freeze
+      }.freeze,
+      humidifier: {
+        device_class: %i[
           humidifier
           dehumidifier
-        ].freeze,
-        sensor: %i[
+        ].freeze
+      }.freeze,
+      light: {
+        on_command_type: %i[last first brightness].freeze
+      }.freeze,
+      sensor: {
+        device_class: %i[
           apparent_power
           aqi
           atmospheric_pressure
@@ -97,479 +484,11 @@ module MQTT
           water
           weight
           wind_speed
-        ].freeze
+        ].to_set.freeze,
+        state_class: %i[measurement total total_increasing].freeze
       }.freeze
-      STATE_CLASSES = %i[measurement total total_increasing].freeze
-      ON_COMMAND_TYPES = %i[last first brightness].freeze
-
-      # @param property [MQTT::Homie::Property] A Homie property object of datatype :boolean
-      def publish_binary_sensor(
-        property,
-        device_class: nil,
-        expire_after: nil,
-        force_update: false,
-        off_delay: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        raise ArgumentError, "Homie property must be a boolean" unless property.datatype == :boolean
-        if device_class && !DEVICE_CLASSES[:binary_sensor].include?(device_class)
-          raise ArgumentError, "Unrecognized device_class #{device_class.inspect}"
-        end
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device_class: device_class,
-                             device: device,
-                             entity_category: entity_category,
-                             icon: icon)
-                 .merge({
-                          payload_off: "false",
-                          payload_on: "true",
-                          object_id: "#{property.node.id}_#{property.id}",
-                          state_topic: property.topic
-                        })
-        config[:expire_after] = expire_after if expire_after
-        config[:force_update] = true if force_update
-        config[:off_delay] = off_delay if off_delay
-
-        publish(property.mqtt, "binary_sensor", config, discovery_prefix: discovery_prefix)
-      end
-
-      def publish_climate(
-        action_property: nil,
-        aux_property: nil,
-        away_mode_property: nil,
-        current_temperature_property: nil,
-        fan_mode_property: nil,
-        mode_property: nil,
-        hold_property: nil,
-        power_property: nil,
-        swing_mode_property: nil,
-        temperature_property: nil,
-        temperature_high_property: nil,
-        temperature_low_property: nil,
-        name: nil,
-        id: nil,
-        precision: nil,
-        temp_step: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil,
-        templates: {}
-      )
-        properties = {
-          action: action_property,
-          aux: aux_property,
-          away_mode: away_mode_property,
-          current_temperature: current_temperature_property,
-          fan_mode: fan_mode_property,
-          mode: mode_property,
-          hold: hold_property,
-          power: power_property,
-          swing_mode: swing_mode_property,
-          temperature: temperature_property,
-          temperature_high: temperature_high_property,
-          temperature_low: temperature_low_property
-        }.compact
-        raise ArgumentError, "At least one property must be specified" if properties.empty?
-        raise ArgumentError, "Power property must be a boolean" if power_property && power_property.datatype != :boolean
-
-        node = properties.first.last.node
-
-        config = base_config(node.device,
-                             name || node.name,
-                             device: device,
-                             entity_category: entity_category,
-                             icon: icon)
-
-        config[:object_id] = id || node.id
-        read_only_props = %i[action current_temperature]
-        properties.each do |prefix, property|
-          add_property(config, property, prefix, templates: templates, read_only: read_only_props.include?(prefix))
-        end
-        temp_properties = [
-          temperature_property,
-          temperature_high_property,
-          temperature_low_property
-        ].compact
-        unless (temp_ranges = temp_properties.map(&:range).compact).empty?
-          config[:min_temp] = temp_ranges.map(&:begin).min
-          config[:max_temp] = temp_ranges.map(&:end).max
-        end
-        temperature_unit = temp_properties.map(&:unit).compact.first
-        config[:temperature_unit] = temperature_unit[-1] if temperature_unit
-        {
-          nil => mode_property,
-          :fan => fan_mode_property,
-          :hold => hold_property,
-          :swing => swing_mode_property
-        }.compact.each do |prefix, property|
-          valid_set = %w[auto off cool heat dry fan_only] if prefix.nil?
-          add_enum(config, property, prefix, valid_set)
-        end
-        config[:precision] = precision if precision
-        config[:temp_step] = temp_step if temp_step
-        if power_property
-          config[:payload_on] = "true"
-          config[:payload_off] = "false"
-        end
-
-        publish(node.mqtt, "climate", config, discovery_prefix: discovery_prefix)
-      end
-
-      def publish_fan(
-        property,
-        oscillation_property: nil,
-        percentage_property: nil,
-        preset_mode_property: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        config = base_config(property.device,
-                             name || property.node.name,
-                             device: device,
-                             device_class: device_class,
-                             entity_category: entity_category,
-                             icon: icon,
-                             templates: {})
-        add_property(config, oscillation_property, :oscillation_property, templates: templates)
-        add_property(config, percentage_property, :percentage, templates: templates)
-        if percentage_property&.range
-          config[:speed_range_min] = percentage_property.range.begin
-          config[:speed_range_max] = percentage_property.range.end
-        end
-        add_property(config, preset_mode_property, :preset, templates: templates)
-        add_enum(config, preset_mode_property, :preset)
-
-        publish(node.mqtt, "fan", config, discovery_prefix: discovery_prefix)
-      end
-
-      def publish_humidifier(
-        property,
-        device_class:,
-        target_property:,
-        mode_property: nil,
-        name: nil,
-        id: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        raise ArgumentError, "Homie property must be a boolean" unless property.datatype == :boolean
-
-        unless DEVICE_CLASSES[:humidifier].include?(device_class)
-          raise ArgumentError, "Unrecognized device_class #{device_class.inspect}"
-        end
-
-        config = base_config(property.device,
-                             name || property.node.name,
-                             device: device,
-                             device_class: device_class,
-                             entity_category: entity_category,
-                             icon: icon)
-                 .merge({
-                          command_topic: "#{property.topic}/set",
-                          target_humidity_command_topic: "#{target_property.topic}/set",
-                          payload_off: "false",
-                          payload_on: "true",
-                          object_id: id || property.node.id
-                        })
-        add_property(config, property)
-        add_property(config, target_property, :target_humidity)
-        if (range = target_property.range)
-          config[:min_humidity] = range.begin
-          config[:max_humidity] = range.end
-        end
-        add_property(config, mode_property, :mode)
-        add_enum(config, mode_property)
-
-        publish(property.mqtt, "humidifier", config, discovery_prefix: discovery_prefix)
-      end
-
-      # `default` schema only for now
-      def publish_light(
-        property = nil,
-        brightness_property: nil,
-        color_mode_property: nil,
-        color_temp_property: nil,
-        effect_property: nil,
-        hs_property: nil,
-        rgb_property: nil,
-        white_property: nil,
-        xy_property: nil,
-        on_command_type: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil,
-        templates: {}
-      )
-        if on_command_type && !ON_COMMAND_TYPES.include?(on_command_type)
-          raise ArgumentError, "Invalid on_command_type #{on_command_type.inspect}"
-        end
-
-        # automatically infer a brightness-only light and adjust config
-        if brightness_property && property.nil?
-          property = brightness_property
-          on_command_type = :brightness
-        end
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device: device,
-                             entity_category: entity_category,
-                             icon: icon)
-        config[:object_id] = "#{property.node.id}_#{property.id}"
-        add_property(config, property)
-        case property.datatype
-        when :boolean
-          config[:payload_off] = "false"
-          config[:payload_on] = "true"
-        when :integer
-          config[:payload_off] = "0"
-        when :float
-          config[:payload_off] = "0.0"
-        end
-        add_property(config, brightness_property, :brightness, templates: templates)
-        config[:brightness_scale] = brightness_property.range.end if brightness_property&.range
-        add_property(config, color_mode_property, :color_mode, templates: templates)
-        add_property(config, color_temp_property, :color_temp, templates: templates)
-        if color_temp_property&.range && color_temp_property.unit == "mired"
-          config[:min_mireds] = color_temp_property.range.begin
-          config[:max_mireds] = color_temp_property.range.end
-        end
-        add_property(config, effect_property, :effect, templates: templates)
-        config[:effect_list] = effect_property.range if effect_property&.datatype == :enum
-        add_property(config, hs_property, :hs, templates: templates)
-        add_property(config, rgb_property, :rgb, templates: templates)
-        add_property(config, white_property, :white, templates: templates)
-        config[:white_scale] = white_property.range.end if white_property&.range
-        add_property(config, xy_property, :xy, templates: templates)
-        config[:on_command_type] = on_command_type if on_command_type
-
-        publish(property.mqtt, "light", config, discovery_prefix: discovery_prefix)
-      end
-
-      def publish_number(
-        property,
-        step: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        raise ArgumentError, "Homie property must be an integer or a float" unless %i[integer
-                                                                                      float].include?(property.datatype)
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device: device,
-                             entity_category: entity_category,
-                             icon: icon)
-        config[:object_id] = "#{property.node.id}_#{property.id}"
-        add_property(config, property)
-        config[:unit_of_measurement] = property.unit if property.unit
-        if property.range
-          config[:min] = property.range.begin
-          config[:max] = property.range.end
-        end
-        config[:step] = step if step
-
-        publish(property.mqtt, "number", config, discovery_prefix: discovery_prefix)
-      end
-
-      def publish_scene(
-        property,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        unless property.datatype == :enum && property.range.length == 1
-          raise ArgumentError, "Homie property must be an enum with a single value"
-        end
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device: device,
-                             entity_category: entity_category,
-                             icon: icon)
-        config[:object_id] = "#{property.node.id}_#{property.id}"
-        add_property(config, property)
-        config[:payload_on] = property.range.first
-
-        publish(property.mqtt, "scene", config, discovery_prefix: discovery_prefix)
-      end
-
-      def publish_select(
-        property,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        raise ArgumentError, "Homie property must be an enum" unless property.datatype == :enum
-        raise ArgumentError, "Homie property must be settable" unless property.settable?
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device: device,
-                             entity_category: entity_category,
-                             icon: icon)
-        config[:object_id] = "#{property.node.id}_#{property.id}"
-        add_property(config, property)
-        config[:options] = property.range
-
-        publish(property.mqtt, "select", config, discovery_prefix: discovery_prefix)
-      end
-
-      # @param property [MQTT::Homie::Property] A Homie property object
-      def publish_sensor(
-        property,
-        device_class: nil,
-        expire_after: nil,
-        force_update: false,
-        state_class: nil,
-
-        device: nil,
-        discovery_prefix: nil,
-        entity_category: nil,
-        icon: nil
-      )
-        device_class ||= :enum if property.datatype == :enum
-        if device_class && !DEVICE_CLASSES[:sensor].include?(device_class)
-          raise ArgumentError, "Unrecognized device_class #{device_class.inspect}"
-        end
-        if state_class && !STATE_CLASSES.include?(state_class)
-          raise ArgumentError, "Unrecognized state_class #{state_class.inspect}"
-        end
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device: device,
-                             device_class: device_class,
-                             entity_category: entity_category,
-                             icon: icon)
-                 .merge({
-                          object_id: "#{property.node.id}_#{property.id}",
-                          state_topic: property.topic
-                        })
-        config[:state_class] = state_class if state_class
-        config[:expire_after] = expire_after if expire_after
-        config[:force_update] = true if force_update
-        config[:unit_of_measurement] = property.unit if property.unit
-
-        publish(property.mqtt, "sensor", config, discovery_prefix: discovery_prefix)
-      end
-
-      # @param property [MQTT::Homie::Property] A Homie property object of datatype :boolean
-      def publish_switch(property,
-                         device_class: nil,
-
-                         device: nil,
-                         discovery_prefix: nil,
-                         entity_category: nil,
-                         icon: nil)
-        raise ArgumentError, "Homie property must be a boolean" unless property.datatype == :boolean
-
-        config = base_config(property.device,
-                             "#{property.node.name} #{property.name}",
-                             device: device,
-                             device_class: device_class,
-                             entity_category: entity_category,
-                             icon: icon)
-                 .merge({
-                          object_id: "#{property.node.id}_#{property.id}",
-                          payload_off: "false",
-                          payload_on: "true"
-                        })
-        add_property(config, property)
-
-        publish(property.mqtt, "switch", config, discovery_prefix: discovery_prefix)
-      end
-
-      private
-
-      def add_property(config, property, prefix = nil, templates: {}, read_only: false)
-        return unless property
-
-        prefix = "#{prefix}_" if prefix
-        state_prefix = "state_" unless read_only
-        config[:"#{prefix}#{state_prefix}topic"] = property.topic if property.retained?
-        if !read_only && property.settable?
-          config[:"#{prefix}command_topic"] = "#{property.topic}/set"
-          config[:"#{prefix}command_template"] = "{{ value | round(0) }}" if property.datatype == :integer
-        end
-        config.merge!(templates.slice(:"#{prefix}template", :"#{prefix}command_template"))
-      end
-
-      def add_enum(config, property, prefix = nil, valid_set = nil)
-        prefix = "#{prefix}_" if prefix
-
-        return unless property&.datatype == :enum
-
-        modes = property.range
-        modes &= valid_set if valid_set
-        config[:"#{prefix}modes"] = modes
-      end
-
-      def base_config(homie_device,
-                      name,
-                      device:,
-                      entity_category:,
-                      icon:,
-                      device_class: nil)
-        if entity_category && !ENTITY_CATEGORIES.include?(entity_category)
-          raise ArgumentError, "Unrecognized entity_category #{entity_category.inspect}"
-        end
-
-        config = {
-          name: name,
-          node_id: homie_device.id,
-          availability_topic: "#{homie_device.topic}/$state",
-          payload_available: "ready",
-          payload_not_available: "lost",
-          qos: 1
-        }
-        config[:device_class] = device_class if device_class
-        config[:entity_category] = entity_category if entity_category
-        config[:icon] = icon if icon
-
-        device = device&.dup || {}
-        device[:name] ||= homie_device.name
-        device[:sw_version] ||= MQTT::Homie::Device::VERSION
-        device[:identifiers] ||= homie_device.id unless device[:connections]
-        config[:device] = device
-
-        config
-      end
-
-      def publish(mqtt, component, config, discovery_prefix:)
-        node_id, object_id = config.values_at(:node_id, :object_id)
-        config = config.dup
-        config[:unique_id] = "#{node_id}_#{object_id}"
-        config.delete(:node_id)
-        config.delete(:object_id)
-        mqtt.publish("#{discovery_prefix || "homeassistant"}/#{component}/#{node_id}/#{object_id}/config",
-                     config.to_json,
-                     retain: true,
-                     qos: 1)
-      end
-    end
+    }.freeze
   end
 end
+
+require "mqtt/home_assistant/client"
