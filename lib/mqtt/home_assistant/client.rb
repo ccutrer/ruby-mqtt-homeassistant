@@ -74,6 +74,11 @@ module MQTT
             raise ArgumentError, "Unrecognized #{attr} #{value} for #{platform}/#{node_and_object_id}"
           end
         end
+        SUBSET_VALIDATIONS[platform]&.each do |attr, valid_values|
+          if (values = kwargs[attr]) && !(extra_values = values - valid_values).empty?
+            raise ArgumentError, "Invalid #{attr} #{extra_values.join(", ")} for #{platform}/#{node_and_object_id}"
+          end
+        end
 
         VALIDATIONS[platform]&.call(**kwargs)
 

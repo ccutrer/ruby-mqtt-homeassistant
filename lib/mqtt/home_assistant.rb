@@ -301,7 +301,31 @@ module MQTT
         state_on
         state_topic
         value_template
-      ].freeze
+      ].freeze,
+      water_heater: %i[
+        current_temperature_template
+        current_temperature_topic
+        initial
+        max_temp
+        min_temp
+        mode_command_template
+        mode_command_topic
+        mode_state_template
+        mode_state_topic
+        modes
+        payload_off
+        payload_on
+        power_command_template
+        power_command_topic
+        precision
+        range
+        temperature_command_template
+        temperature_command_topic
+        temperature_state_template
+        temperature_state_topic
+        temperature_unit
+        value_template
+      ]
     }.freeze
 
     RANGE_ATTRIBUTES = {
@@ -309,7 +333,8 @@ module MQTT
       fan: { speed_range: :suffix }.freeze,
       humidifier: { humidity: :prefix }.freeze,
       light: { mireds: :prefix }.freeze,
-      number: { range: :singleton }.freeze
+      number: { range: :singleton }.freeze,
+      water_heater: { range: :singleton }.freeze
     }.freeze
 
     REQUIRED_ATTRIBUTES = {
@@ -361,32 +386,35 @@ module MQTT
       switch: {
         payload_off: "OFF",
         payload_on: "ON"
+      }.freeze,
+      water_heater: {
+        modes: %i[off eco electric gas heat_pump high_demand performance].freeze,
+        payload_off: "OFF",
+        payload_on: "ON"
       }.freeze
     }.freeze
 
-    COLOR_MODES = %i[onoff brightness color_temp hs xy rgb rgbw rgbww white].freeze
-
     VALIDATIONS = {
-      climate: lambda do |modes: nil, **|
-        if modes && !(extra_modes = modes - DEFAULTS[:climate][:modes]).empty?
-          raise ArgumentError, "Invalid mode(s) #{extra_modes.join(", ")} for platform climate"
-        end
-      end,
       light: lambda do |supported_color_modes: nil, **|
-        if supported_color_modes
-          unless (extra_modes = (supported_color_modes - COLOR_MODES)).empty?
-            raise ArgumentError, "Invalid color_mode(s) #{extra_modes.join(", ")} for platform light"
-          end
-
-          if supported_color_modes.length > 1 &&
-             (supported_color_modes.include?(:onoff) || supported_color_modes.include?(:brightness))
-            raise ArgumentError,
-                  "Multiple color modes are not supported for platform light if onoff or brightness are specified"
-          end
+        if supported_color_modes && supported_color_modes.length > 1 &&
+           (supported_color_modes.include?(:onoff) || supported_color_modes.include?(:brightness))
+          raise ArgumentError,
+                "Multiple color modes are not supported for platform light if onoff or brightness are specified"
         end
       end
     }.freeze
 
+    SUBSET_VALIDATIONS = {
+      climate: {
+        modes: DEFAULTS[:climate][:modes]
+      }.freeze,
+      light: {
+        supported_color_modes: %i[onoff brightness color_temp hs xy rgb rgbw rgbww white].freeze
+      }.freeze,
+      water_heater: {
+        modes: DEFAULTS[:water_heater][:modes]
+      }
+    }.freeze
     INCLUSION_VALIDATIONS = {
       common: {
         entity_category: %i[config diagnostic system].freeze
