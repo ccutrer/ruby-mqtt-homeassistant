@@ -8,9 +8,27 @@ module MQTT
           def publish_hass_#{platform}(object_id, platform: #{platform.inspect}, **kwargs)
             raise ArgumentError, "platform must be #{platform.inspect}" unless platform == #{platform.inspect}
 
-            publish(object_id, platform: platform, **kwargs)
+            publish_hass_component(object_id, platform: platform, **kwargs)
+          end
+
+          def unpublish_hass_#{platform}(object_id, platform: #{platform.inspect}, **kwargs)
+            raise ArgumentError, "platform must be #{platform.inspect}" unless platform == #{platform.inspect}
+
+            unpublish_hass_component(object_id, platform: platform, **kwargs)
           end
         RUBY
+      end
+
+      def unpublish_hass_component(object_id, platform:, discovery_prefix: "homeassistant", node_id: nil)
+        node_and_object_id = node_id ? "#{node_id}/#{object_id}" : object_id
+        unless KNOWN_ATTRIBUTES.key?(platform)
+          raise ArgumentError, "Unknown platform #{platform} for #{node_and_object_id}"
+        end
+
+        publish("#{discovery_prefix || "homeassistant"}/#{platform}/#{node_and_object_id}/config",
+                "",
+                retain: true,
+                qos: 1)
       end
 
       def publish_hass_component(object_id, platform:, discovery_prefix: "homeassistant", node_id: nil, **kwargs)
