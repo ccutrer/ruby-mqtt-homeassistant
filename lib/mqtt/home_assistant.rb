@@ -336,6 +336,17 @@ module MQTT
         state_topic
         value_template
       ].freeze,
+      text: %i[
+        command_template
+        command_topic
+        min
+        max
+        range
+        mode
+        pattern
+        state_topic
+        value_template
+      ].freeze,
       water_heater: %i[
         current_temperature_template
         current_temperature_topic
@@ -369,6 +380,7 @@ module MQTT
       humidifier: { humidity: :prefix }.freeze,
       light: { mireds: :prefix }.freeze,
       number: { range: :singleton }.freeze,
+      text: { range: :singleton }.freeze,
       water_heater: { range: :singleton }.freeze
     }.freeze
 
@@ -384,7 +396,8 @@ module MQTT
       number: %i[command_topic].freeze,
       select: %i[command_topic options].freeze,
       sensor: %i[state_topic].freeze,
-      switch: %i[command_topic].freeze
+      switch: %i[command_topic].freeze,
+      text: %i[command_topic].freeze
     }.freeze
 
     DEFAULTS = {
@@ -435,6 +448,9 @@ module MQTT
       switch: {
         payload_off: "OFF",
         payload_on: "ON"
+      }.freeze,
+      text: {
+        mode: "text"
       }.freeze,
       water_heater: {
         modes: %i[off eco electric gas heat_pump high_demand performance].freeze,
@@ -584,7 +600,10 @@ module MQTT
           wind_speed
         ].to_set.freeze,
         state_class: %i[measurement total total_increasing].freeze
-      }.freeze
+      }.freeze,
+      text: {
+        mode: %i[text password].freeze
+      }
     }.freeze
   end
 end
