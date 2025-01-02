@@ -22,8 +22,5 @@ Gem::Specification.new do |s|
   s.add_dependency "homie-mqtt", "~> 1.6"
   s.add_dependency "json", "~> 2.0"
 
-  s.add_development_dependency "byebug", "~> 11.0"
   s.add_development_dependency "rake", "~> 13.0"
-  s.add_development_dependency "rubocop-inst", "~> 1.0"
-  s.add_development_dependency "rubocop-rake", "~> 0.6"
 end
