@@ -1,9 +1,9 @@
 PATH
   remote: .
   specs:
-    mqtt-homeassistant (1.0.0)
-      homie-mqtt (~> 1.6)
+    mqtt-homeassistant (1.0.1)
       json (~> 2.0)
+      mqtt-ccutrer (~> 1.0, >= 1.0.3)
 
 GEM
   remote: https://rubygems.org/
@@ -14,9 +14,6 @@ GEM
     debug (1.10.0)
       irb (~> 1.10)
       reline (>= 0.3.8)
-    homie-mqtt (1.6.3)
-      mqtt-ccutrer (~> 1.0, >= 1.0.3)
-      ruby2_keywords (~> 0.0.5)
     io-console (0.8.0)
     irb (1.14.3)
       rdoc (>= 4.0.0)
@@ -63,7 +60,6 @@ GEM
     rubocop-rake (0.6.0)
       rubocop (~> 1.0)
     ruby-progressbar (1.13.0)
-    ruby2_keywords (0.0.5)
     stringio (3.1.2)
     unicode-display_width (2.5.0)
 
