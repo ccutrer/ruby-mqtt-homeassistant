@@ -2,8 +2,6 @@
 
 require "json"
 
-require "mqtt-homie-homeassistant"
-
 module MQTT
   module HomeAssistant
     SPECIAL_ATTRIBUTES = {
@@ -20,6 +18,7 @@ module MQTT
         json_attributes_template
         json_attributes_topic
         name
+        object_id
         optimistic
         payload_available
         payload_not_available
