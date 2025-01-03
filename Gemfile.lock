@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    mqtt-homeassistant (1.0.1)
+    mqtt-homeassistant (1.0.2)
       json (~> 2.0)
       mqtt-ccutrer (~> 1.0, >= 1.0.3)
 

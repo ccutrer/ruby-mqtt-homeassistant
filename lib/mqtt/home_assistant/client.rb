@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require "mqtt/client"
+
 module MQTT
   module HomeAssistant
     module Client
