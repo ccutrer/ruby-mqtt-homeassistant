@@ -375,7 +375,7 @@ module MQTT
     RANGE_ATTRIBUTES = {
       climate: { humidity: :prefix, temp: :prefix }.freeze,
       cover: { tilt: :suffix }.freeze,
-      fan: { speed_range: :suffix }.freeze,
+      fan: { speed: :suffix }.freeze,
       humidifier: { humidity: :prefix }.freeze,
       light: { mireds: :prefix }.freeze,
       number: { range: :singleton }.freeze,

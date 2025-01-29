@@ -103,7 +103,8 @@ module MQTT
         VALIDATIONS[platform]&.call(**kwargs)
 
         RANGE_ATTRIBUTES[platform]&.each do |attr, prefix_or_suffix|
-          if (range = kwargs.delete(:"#{attr}_range"))
+          range_name = (prefix_or_suffix == :singleton) ? attr : :"#{attr}_range"
+          if (range = kwargs.delete(range_name))
             case prefix_or_suffix
             when :prefix
               kwargs[:"min_#{attr}"] = range.begin
