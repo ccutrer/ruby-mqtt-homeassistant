@@ -36,7 +36,7 @@ module MQTT
       def publish_hass_device(device_id, discovery_prefix: "homeassistant", migrate_discovery: false, **kwargs)
         raise ArgumentError, "components cannot be passed as an argument" if kwargs[:components]
 
-        validate_hass_availability(kwargs, :device, device_id)
+        validate_hass_common(kwargs, :device, device_id)
 
         @collected_hass_components = {}
         begin
@@ -57,6 +57,7 @@ module MQTT
           end
         end
 
+        hass_abbreviate(ABBREVIATIONS, kwargs)
         hass_publish(discovery_prefix, :device, device_id, kwargs.to_json)
 
         return unless migrate_discovery
@@ -94,14 +95,7 @@ module MQTT
           raise ArgumentError, "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}"
         end
 
-        validate_hass_availability(kwargs, platform, node_and_object_id)
-
-        if (device = kwargs[:device])
-          raise ArgumentError, "device must be a hash for #{platform}/#{node_and_object_id}" unless device.is_a?(Hash)
-          unless (extra_keys = device.keys - SPECIAL_ATTRIBUTES[:device]).empty?
-            raise ArgumentError, "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}'s device"
-          end
-        end
+        validate_hass_common(kwargs, platform, node_and_object_id)
 
         INCLUSION_VALIDATIONS[:common].merge(INCLUSION_VALIDATIONS[platform] || {}).each do |attr, valid_values|
           if (value = kwargs[attr]) && !valid_values.include?(value)
@@ -133,8 +127,9 @@ module MQTT
           end
         end
 
+        hass_abbreviate(ABBREVIATIONS, kwargs)
         if @collected_hass_components
-          kwargs[:platform] = platform
+          kwargs[:p] = platform
           @collected_hass_components[object_id] = kwargs
         else
           hass_publish(discovery_prefix, platform, node_and_object_id, kwargs.to_json)
@@ -159,6 +154,12 @@ module MQTT
                 json,
                 retain: true,
                 qos: 1)
+      end
+
+      def validate_hass_common(kwargs, platform, node_and_object_id)
+        validate_hass_availability(kwargs, platform, node_and_object_id)
+        validate_hass_special(:device, kwargs, platform, node_and_object_id, DEVICE_ABBREVIATIONS)
+        validate_hass_special(:origin, kwargs, platform, node_and_object_id, ORIGIN_ABBREVIATIONS)
       end
 
       def validate_hass_availability(kwargs, platform, node_and_object_id)
@@ -188,6 +189,25 @@ module MQTT
             end
           end
         end
+      end
+
+      def validate_hass_special(special_type, kwargs, platform, node_and_object_id, abbreviations)
+        if (config = kwargs[special_type])
+          unless config.is_a?(Hash)
+            raise ArgumentError,
+                  "#{special_type} must be a hash for #{platform}/#{node_and_object_id}"
+          end
+          unless (extra_keys = config.keys - SPECIAL_ATTRIBUTES[special_type]).empty?
+            raise ArgumentError,
+                  "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}'s #{special_type}"
+          end
+
+          hass_abbreviate(abbreviations, config)
+        end
+      end
+
+      def hass_abbreviate(abbreviations, kwargs)
+        kwargs.transform_keys! { |key| abbreviations[key.to_s] || key }
       end
     end
   end
