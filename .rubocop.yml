@@ -2,22 +2,17 @@ inherit_gem:
   rubocop-inst:
   - rubocop.yml
 
-require:
+plugins:
   - rubocop-rake
 
 AllCops:
-  TargetRubyVersion: 2.5
+  TargetRubyVersion: 3.2
   NewCops: enable
-
-Gemspec/DevelopmentDependencies:
-  EnforcedStyle: gemspec
 
 Naming/FileName:
   Exclude:
     - lib/mqtt-homeassistant.rb
 
-Style/BlockDelimiters:
-  AllowedMethods: []
 Style/DocumentDynamicEvalDefinition:
   Enabled: false
 Style/Documentation:

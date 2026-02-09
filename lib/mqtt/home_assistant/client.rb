@@ -56,11 +56,11 @@ module MQTT
         end
 
         if (availability_list = kwargs[:availability])
-          unless (kwargs.keys & %i[availability_mode
-                                   availability_template
-                                   availability_topic
-                                   payload_available
-                                   payload_not_available]).empty?
+          if kwargs.keys.intersect?(%i[availability_mode
+                                       availability_template
+                                       availability_topic
+                                       payload_available
+                                       payload_not_available])
             raise ArgumentError,
                   "availability cannot be used together with availability topic for #{platform}/#{node_and_object_id}"
           end
@@ -104,18 +104,18 @@ module MQTT
 
         RANGE_ATTRIBUTES[platform]&.each do |attr, prefix_or_suffix|
           range_name = (prefix_or_suffix == :singleton) ? attr : :"#{attr}_range"
-          if (range = kwargs.delete(range_name))
-            case prefix_or_suffix
-            when :prefix
-              kwargs[:"min_#{attr}"] = range.begin
-              kwargs[:"max_#{attr}"] = range.end
-            when :suffix
-              kwargs[:"#{attr}_min"] = range.begin
-              kwargs[:"#{attr}_max"] = range.end
-            when :singleton
-              kwargs[:min] = range.begin
-              kwargs[:max] = range.end
-            end
+          next unless (range = kwargs.delete(range_name))
+
+          case prefix_or_suffix
+          when :prefix
+            kwargs[:"min_#{attr}"] = range.begin
+            kwargs[:"max_#{attr}"] = range.end
+          when :suffix
+            kwargs[:"#{attr}_min"] = range.begin
+            kwargs[:"#{attr}_max"] = range.end
+          when :singleton
+            kwargs[:min] = range.begin
+            kwargs[:max] = range.end
           end
         end
 
