@@ -33,19 +33,53 @@ module MQTT
                 qos: 1)
       end
 
+      def publish_hass_device(device_id, discovery_prefix: "homeassistant", migrate_discovery: false, **kwargs)
+        raise ArgumentError, "components cannot be passed as an argument" if kwargs[:components]
+
+        validate_hass_availability(kwargs, :device, device_id)
+
+        @collected_hass_components = {}
+        begin
+          yield
+        ensure
+          kwargs[:components] = @collected_hass_components
+          @collected_hass_components = nil
+        end
+
+        missing_attributes = REQUIRED_ATTRIBUTES[:device] - kwargs.keys
+        unless missing_attributes.empty?
+          raise ArgumentError, "Missing attribute(s) #{missing_attributes.join(", ")} for device/#{device_id}"
+        end
+
+        if migrate_discovery
+          kwargs[:components].each do |object_id, component|
+            hass_publish(discovery_prefix, component[:platform], "#{device_id}/#{object_id}", MIGRATE_DISCOVERY_JSON)
+          end
+        end
+
+        hass_publish(discovery_prefix, :device, device_id, kwargs.to_json)
+
+        return unless migrate_discovery
+
+        kwargs[:components].each do |object_id, component|
+          hass_publish(discovery_prefix, component[:platform], "#{device_id}/#{object_id}", "")
+        end
+      end
+
       def publish_hass_component(object_id, platform:, discovery_prefix: "homeassistant", node_id: nil, **kwargs)
+        raise ArgumentError, "Use `publish_hass_device` for device discovery" if platform == :device
+
         node_and_object_id = node_id ? "#{node_id}/#{object_id}" : object_id
         unless KNOWN_ATTRIBUTES.key?(platform)
           raise ArgumentError, "Unknown platform #{platform} for #{node_and_object_id}"
         end
 
         required_attributes = attributes_for_schema(REQUIRED_ATTRIBUTES, platform, kwargs)
-        if required_attributes
-          missing_attributes = required_attributes - kwargs.keys
-          unless missing_attributes&.empty?
-            raise ArgumentError,
-                  "Missing attribute(s) #{missing_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
-          end
+        required_attributes += [:unique_id] if @collected_hass_components && ENTITY_PLATFORMS.include?(platform)
+        missing_attributes = required_attributes - kwargs.keys
+        unless missing_attributes.empty?
+          raise ArgumentError,
+                "Missing attribute(s) #{missing_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
         end
 
         known_attributes = attributes_for_schema(KNOWN_ATTRIBUTES, platform, kwargs)
@@ -55,32 +89,12 @@ module MQTT
                 "Unknown attribute(s) #{unknown_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
         end
 
-        if (availability_list = kwargs[:availability])
-          if kwargs.keys.intersect?(%i[availability_mode
-                                       availability_template
-                                       availability_topic
-                                       payload_available
-                                       payload_not_available])
-            raise ArgumentError,
-                  "availability cannot be used together with availability topic for #{platform}/#{node_and_object_id}"
-          end
-
-          availability_list = [availability_list] if availability_list.is_a?(Hash)
-          unless availability_list.is_a?(Array)
-            raise ArgumentError, "availability must be an array for #{platform}/#{node_and_object_id}"
-          end
-
-          availability_list.each do |availability|
-            unless availability.key?(:topic)
-              raise ArgumentError, "availability must have a topic for #{platform}/#{node_and_object_id}"
-            end
-
-            unless (extra_keys = availability.keys - SPECIAL_ATTRIBUTES[:availability]).empty?
-              raise ArgumentError,
-                    "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}'s availability"
-            end
-          end
+        if @collected_hass_components &&
+           !(extra_keys = DISALLOWED_COMPONENT_ATTRIBUTES_WHEN_DEVICE & kwargs.keys).empty?
+          raise ArgumentError, "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}"
         end
+
+        validate_hass_availability(kwargs, platform, node_and_object_id)
 
         if (device = kwargs[:device])
           raise ArgumentError, "device must be a hash for #{platform}/#{node_and_object_id}" unless device.is_a?(Hash)
@@ -119,10 +133,12 @@ module MQTT
           end
         end
 
-        publish("#{discovery_prefix || "homeassistant"}/#{platform}/#{node_and_object_id}/config",
-                kwargs.to_json,
-                retain: true,
-                qos: 1)
+        if @collected_hass_components
+          kwargs[:platform] = platform
+          @collected_hass_components[object_id] = kwargs
+        else
+          hass_publish(discovery_prefix, platform, node_and_object_id, kwargs.to_json)
+        end
       end
 
       private
@@ -136,6 +152,42 @@ module MQTT
         end
 
         attributes
+      end
+
+      def hass_publish(discovery_prefix, platform, node_and_object_id, json)
+        publish("#{discovery_prefix || "homeassistant"}/#{platform}/#{node_and_object_id}/config",
+                json,
+                retain: true,
+                qos: 1)
+      end
+
+      def validate_hass_availability(kwargs, platform, node_and_object_id)
+        if (availability_list = kwargs[:availability])
+          if kwargs.keys.intersect?(%i[availability_mode
+                                       availability_template
+                                       availability_topic
+                                       payload_available
+                                       payload_not_available])
+            raise ArgumentError,
+                  "availability cannot be used together with availability topic for #{platform}/#{node_and_object_id}"
+          end
+
+          availability_list = [availability_list] if availability_list.is_a?(Hash)
+          unless availability_list.is_a?(Array)
+            raise ArgumentError, "availability must be an array for #{platform}/#{node_and_object_id}"
+          end
+
+          availability_list.each do |availability|
+            unless availability.key?(:topic)
+              raise ArgumentError, "availability must have a topic for #{platform}/#{node_and_object_id}"
+            end
+
+            unless (extra_keys = availability.keys - SPECIAL_ATTRIBUTES[:availability]).empty?
+              raise ArgumentError,
+                    "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}'s availability"
+            end
+          end
+        end
       end
     end
   end

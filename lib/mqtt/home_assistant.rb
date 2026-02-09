@@ -20,6 +20,7 @@ module MQTT
         name
         object_id
         optimistic
+        origin
         payload_available
         payload_not_available
         platform
@@ -46,8 +47,14 @@ module MQTT
         suggested_area
         sw_version
         via_device
+      ].freeze,
+      origin: %i[
+        name
+        support_url
+        sw_version
       ].freeze
     }.freeze
+
     KNOWN_ATTRIBUTES = {
       binary_sensor: %i[
         state_topic
@@ -152,6 +159,20 @@ module MQTT
         tilt_range
         tilt_status_template
         value_template
+      ].freeze,
+      device: %i[
+        availability
+        availability_mode
+        availability_template
+        availability_topic
+        command_topic
+        device
+        encoding
+        origin
+        payload_available
+        payload_not_available
+        qos
+        state_topic
       ].freeze,
       fan: %i[
         command_topic:
@@ -383,21 +404,32 @@ module MQTT
       water_heater: { range: :singleton }.freeze
     }.freeze
 
-    REQUIRED_ATTRIBUTES = {
-      binary_sensor: %i[state_topic].freeze,
-      button: %i[command_topic].freeze,
-      humidifier: %i[command_topic target_humidity_command_topic].freeze,
-      light: {
-        default: %i[command_topic].freeze,
-        json: %i[command_topic].freeze,
-        template: %i[command_off_template command_on_template command_topic]
-      }.freeze,
-      number: %i[command_topic].freeze,
-      select: %i[command_topic options].freeze,
-      sensor: %i[state_topic].freeze,
-      switch: %i[command_topic].freeze,
-      text: %i[command_topic].freeze
-    }.freeze
+    REQUIRED_ATTRIBUTES = Hash.new([].freeze).merge(
+      {
+        binary_sensor: %i[state_topic].freeze,
+        button: %i[command_topic].freeze,
+        device: %i[components device origin].freeze,
+        humidifier: %i[command_topic
+                       target_humidity_command_topic].freeze,
+        light: {
+          default: %i[command_topic].freeze,
+          json: %i[command_topic].freeze,
+          template: %i[command_off_template
+                       command_on_template
+                       command_topic]
+        }.freeze,
+        number: %i[command_topic].freeze,
+        select: %i[command_topic options].freeze,
+        sensor: %i[state_topic].freeze,
+        switch: %i[command_topic].freeze,
+        text: %i[command_topic].freeze
+      }
+    ).freeze
+
+    DISALLOWED_COMPONENT_ATTRIBUTES_WHEN_DEVICE = %w[
+      availability
+      device
+    ].freeze
 
     DEFAULTS = {
       binary_sensor: {
@@ -604,6 +636,35 @@ module MQTT
         mode: %i[text password].freeze
       }
     }.freeze
+
+    ENTITY_PLATFORMS = %i[alarm_control_panel
+                          binary_sensor
+                          button
+                          camera
+                          climate
+                          cover
+                          device_tracker
+                          event
+                          fan
+                          humidifier
+                          image
+                          light
+                          lawn_mower
+                          lock
+                          notify
+                          number
+                          scene
+                          select
+                          sensor
+                          siren
+                          switch
+                          text
+                          update
+                          vacuum
+                          valve
+                          water_heater].freeze
+
+    MIGRATE_DISCOVERY_JSON = { migrate_discovery: true }.to_json.freeze
   end
 end
 
