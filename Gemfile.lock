@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    mqtt-homeassistant (1.0.3)
+    mqtt-homeassistant (1.1.0)
       json (~> 2.0)
       mqtt-ccutrer (~> 1.0, >= 1.0.3)
 
@@ -37,6 +37,7 @@ GEM
     psych (5.3.1)
       date
       stringio
+    pycall (1.5.2)
     racc (1.8.1)
     rainbow (3.1.1)
     rake (13.3.1)
@@ -84,6 +85,7 @@ PLATFORMS
 DEPENDENCIES
   debug (~> 1.9)
   mqtt-homeassistant!
+  pycall (~> 1.5)
   rake (~> 13.3)
   rubocop-inst (~> 1.0)
   rubocop-rake (~> 0.6)

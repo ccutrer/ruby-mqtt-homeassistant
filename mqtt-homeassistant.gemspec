@@ -15,7 +15,7 @@ Gem::Specification.new do |s|
     "rubygems_mfa_required" => "true"
   }
 
-  s.files = Dir["{lib}/**/*"]
+  s.files = Dir["{lib,python}/**/*"].grep_v(/__pycache__/)
 
   s.required_ruby_version = ">= 3.2"
 

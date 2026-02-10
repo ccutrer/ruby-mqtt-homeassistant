@@ -2,6 +2,12 @@
 
 require "mqtt/client"
 
+begin
+  require "home_assistant/mqtt/discovery"
+rescue LoadError
+  # ignore
+end
+
 module MQTT
   module HomeAssistant
     module Client
@@ -46,24 +52,31 @@ module MQTT
           @collected_hass_components = nil
         end
 
-        missing_attributes = REQUIRED_ATTRIBUTES[:device] - kwargs.keys
-        unless missing_attributes.empty?
-          raise ArgumentError, "Missing attribute(s) #{missing_attributes.join(", ")} for device/#{device_id}"
-        end
-
-        if migrate_discovery
-          kwargs[:components].each do |object_id, component|
-            hass_publish(discovery_prefix, component[:platform], "#{device_id}/#{object_id}", MIGRATE_DISCOVERY_JSON)
+        unless defined?(::HomeAssistant::MQTT::Discovery)
+          missing_attributes = REQUIRED_ATTRIBUTES[:device] - kwargs.keys
+          unless missing_attributes.empty?
+            raise ArgumentError, "Missing attribute(s) #{missing_attributes.join(", ")} for device/#{device_id}"
           end
         end
 
         hass_abbreviate(ABBREVIATIONS, kwargs)
+
+        if migrate_discovery
+          kwargs[:cmps].each do |object_id, component|
+            hass_publish(discovery_prefix,
+                         component[:p],
+                         "#{device_id}/#{object_id}",
+                         MIGRATE_DISCOVERY_JSON,
+                         validate: false)
+          end
+        end
+
         hass_publish(discovery_prefix, :device, device_id, kwargs.to_json)
 
         return unless migrate_discovery
 
-        kwargs[:components].each do |object_id, component|
-          hass_publish(discovery_prefix, component[:platform], "#{device_id}/#{object_id}", "")
+        kwargs[:cmps].each do |object_id, component|
+          hass_publish(discovery_prefix, component[:p], "#{device_id}/#{object_id}", "", validate: false)
         end
       end
 
@@ -71,44 +84,47 @@ module MQTT
         raise ArgumentError, "Use `publish_hass_device` for device discovery" if platform == :device
 
         node_and_object_id = node_id ? "#{node_id}/#{object_id}" : object_id
-        unless KNOWN_ATTRIBUTES.key?(platform)
-          raise ArgumentError, "Unknown platform #{platform} for #{node_and_object_id}"
-        end
-
-        required_attributes = attributes_for_schema(REQUIRED_ATTRIBUTES, platform, kwargs)
-        required_attributes += [:unique_id] if @collected_hass_components && ENTITY_PLATFORMS.include?(platform)
-        missing_attributes = required_attributes - kwargs.keys
-        unless missing_attributes.empty?
-          raise ArgumentError,
-                "Missing attribute(s) #{missing_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
-        end
-
-        known_attributes = attributes_for_schema(KNOWN_ATTRIBUTES, platform, kwargs)
-        unknown_attributes = kwargs.keys - SPECIAL_ATTRIBUTES[:common] - known_attributes
-        unless unknown_attributes.empty?
-          raise ArgumentError,
-                "Unknown attribute(s) #{unknown_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
-        end
-
-        if @collected_hass_components &&
-           !(extra_keys = DISALLOWED_COMPONENT_ATTRIBUTES_WHEN_DEVICE & kwargs.keys).empty?
-          raise ArgumentError, "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}"
-        end
 
         validate_hass_common(kwargs, platform, node_and_object_id)
 
-        INCLUSION_VALIDATIONS[:common].merge(INCLUSION_VALIDATIONS[platform] || {}).each do |attr, valid_values|
-          if (value = kwargs[attr]) && !valid_values.include?(value)
-            raise ArgumentError, "Unrecognized #{attr} #{value} for #{platform}/#{node_and_object_id}"
+        unless defined?(::HomeAssistant::MQTT::Discovery)
+          unless KNOWN_ATTRIBUTES.key?(platform)
+            raise ArgumentError, "Unknown platform #{platform} for #{node_and_object_id}"
           end
-        end
-        SUBSET_VALIDATIONS[platform]&.each do |attr, valid_values|
-          if (values = kwargs[attr]) && !(extra_values = values - valid_values).empty?
-            raise ArgumentError, "Invalid #{attr} #{extra_values.join(", ")} for #{platform}/#{node_and_object_id}"
-          end
-        end
 
-        VALIDATIONS[platform]&.call(**kwargs)
+          required_attributes = attributes_for_schema(REQUIRED_ATTRIBUTES, platform, kwargs)
+          required_attributes += [:unique_id] if @collected_hass_components && ENTITY_PLATFORMS.include?(platform)
+          missing_attributes = required_attributes - kwargs.keys
+          unless missing_attributes.empty?
+            raise ArgumentError,
+                  "Missing attribute(s) #{missing_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
+          end
+
+          known_attributes = attributes_for_schema(KNOWN_ATTRIBUTES, platform, kwargs)
+          unknown_attributes = kwargs.keys - SPECIAL_ATTRIBUTES[:common] - known_attributes
+          unless unknown_attributes.empty?
+            raise ArgumentError,
+                  "Unknown attribute(s) #{unknown_attributes.join(", ")} for #{platform}/#{node_and_object_id}"
+          end
+
+          if @collected_hass_components &&
+             !(extra_keys = DISALLOWED_COMPONENT_ATTRIBUTES_WHEN_DEVICE & kwargs.keys).empty?
+            raise ArgumentError, "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}"
+          end
+
+          INCLUSION_VALIDATIONS[:common].merge(INCLUSION_VALIDATIONS[platform] || {}).each do |attr, valid_values|
+            if (value = kwargs[attr]) && !valid_values.include?(value)
+              raise ArgumentError, "Unrecognized #{attr} #{value} for #{platform}/#{node_and_object_id}"
+            end
+          end
+          SUBSET_VALIDATIONS[platform]&.each do |attr, valid_values|
+            if (values = kwargs[attr]) && !(extra_values = values - valid_values).empty?
+              raise ArgumentError, "Invalid #{attr} #{extra_values.join(", ")} for #{platform}/#{node_and_object_id}"
+            end
+          end
+
+          VALIDATIONS[platform]&.call(**kwargs)
+        end
 
         RANGE_ATTRIBUTES[platform]&.each do |attr, prefix_or_suffix|
           range_name = (prefix_or_suffix == :singleton) ? attr : :"#{attr}_range"
@@ -149,7 +165,17 @@ module MQTT
         attributes
       end
 
-      def hass_publish(discovery_prefix, platform, node_and_object_id, json)
+      def hass_publish(discovery_prefix, platform, node_and_object_id, json, validate: true)
+        if defined?(::HomeAssistant::MQTT::Discovery) && validate
+          begin
+            ::HomeAssistant::MQTT::Discovery.process_discovery_config(
+              "#{platform}/#{node_and_object_id}/config", json
+            )
+          rescue PyCall::PyError => e
+            raise ArgumentError, e
+          end
+        end
+
         publish("#{discovery_prefix || "homeassistant"}/#{platform}/#{node_and_object_id}/config",
                 json,
                 retain: true,
@@ -163,6 +189,8 @@ module MQTT
       end
 
       def validate_hass_availability(kwargs, platform, node_and_object_id)
+        return if defined?(::HomeAssistant::MQTT::Discovery)
+
         if (availability_list = kwargs[:availability])
           if kwargs.keys.intersect?(%i[availability_mode
                                        availability_template
@@ -193,13 +221,15 @@ module MQTT
 
       def validate_hass_special(special_type, kwargs, platform, node_and_object_id, abbreviations)
         if (config = kwargs[special_type])
-          unless config.is_a?(Hash)
-            raise ArgumentError,
-                  "#{special_type} must be a hash for #{platform}/#{node_and_object_id}"
-          end
-          unless (extra_keys = config.keys - SPECIAL_ATTRIBUTES[special_type]).empty?
-            raise ArgumentError,
-                  "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}'s #{special_type}"
+          unless defined?(::HomeAssistant::MQTT::Discovery)
+            unless config.is_a?(Hash)
+              raise ArgumentError,
+                    "#{special_type} must be a hash for #{platform}/#{node_and_object_id}"
+            end
+            unless (extra_keys = config.keys - SPECIAL_ATTRIBUTES[special_type]).empty?
+              raise ArgumentError,
+                    "Unknown attribute(s) #{extra_keys} for #{platform}/#{node_and_object_id}'s #{special_type}"
+            end
           end
 
           hass_abbreviate(abbreviations, config)
