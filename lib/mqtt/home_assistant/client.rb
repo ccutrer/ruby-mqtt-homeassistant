@@ -232,12 +232,12 @@ module MQTT
             end
           end
 
-          hass_abbreviate(abbreviations, config)
+          kwargs[special_type] = hass_abbreviate(abbreviations, config)
         end
       end
 
       def hass_abbreviate(abbreviations, kwargs)
-        kwargs.transform_keys! { |key| abbreviations[key.to_s] || key }
+        kwargs.transform_keys { |key| abbreviations[key.to_s] || key }
       end
     end
   end
