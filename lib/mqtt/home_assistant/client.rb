@@ -12,6 +12,8 @@ module MQTT
   module HomeAssistant
     module Client
       KNOWN_ATTRIBUTES.each_key do |platform|
+        next if platform == :device
+
         class_eval <<~RUBY, __FILE__, __LINE__ + 1
           def publish_hass_#{platform}(object_id, platform: #{platform.inspect}, **kwargs)
             raise ArgumentError, "platform must be #{platform.inspect}" unless platform == #{platform.inspect}
